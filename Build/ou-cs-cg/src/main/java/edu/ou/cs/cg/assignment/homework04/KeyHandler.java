@@ -39,6 +39,7 @@ public final class KeyHandler extends KeyAdapter
 	// State (internal) variables
 	private final View		view;
 	private final Model	model;
+	private int sides;
 
 	//**********************************************************************
 	// Constructors and Finalizer
@@ -67,24 +68,31 @@ public final class KeyHandler extends KeyAdapter
 		switch (e.getKeyCode())
 		{
 			case KeyEvent.VK_C:	// Move object to center
-				// TODO: YOUR CODE HERE
+				model.getObject().setLocation(0,0);
 				return;
 
 			case KeyEvent.VK_Q:	// Decrement sides, in [2, MAX], 2=special
-				// TODO: YOUR CODE HERE
+				sides = model.getNumber();
+				if(sides != 2) model.setNumber(sides-1);
 				break;
 
 			case KeyEvent.VK_W:	// Increment sides, in [2, MAX], 2=special
-				// TODO: YOUR CODE HERE
+				sides = model.getNumber();
+				if(sides < view.getMaxSides()) model.incNumber();
+				//System.out.println("Incrementing to: " + model.getNumber());
 				break;
 
 			case KeyEvent.VK_A:	// Decrease speed by 1.1x, 2x if shift down
-				// TODO: YOUR CODE HERE
+				factor = model.getFactor();
+				if(Utilities.isShiftDown(e)) model.setFactor(factor/2);
+				else	model.setFactor(factor/1.1);
 				break;
 
 			case KeyEvent.VK_S:	// Increase speed by 1.1x, 2x if shift down
-				// TODO: YOUR CODE HERE
-				break;
+			factor = model.getFactor();
+			if(Utilities.isShiftDown(e)) model.setFactor(factor*2);
+			else	model.setFactor(factor*1.1);
+			break;
 		}
 	}
 }

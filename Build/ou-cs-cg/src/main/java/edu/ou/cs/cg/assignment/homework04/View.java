@@ -81,9 +81,14 @@ public final class View
 
 	// Reference Vector
 	// TODO: PUT MEMBERS FOR THE REFERENCE VECTOR HERE
+	Point2D.Double rv;
 
 	// Tracer and Bounces
 	// TODO: PUT MEMBERS FOR THE TRACER AND BOUNCES HERE
+	private Deque<Point2D.Double>	traces;
+	private Deque<Point2D.Double>	bounces;
+
+
 
 	//**********************************************************************
 	// Constructors and Finalizer
@@ -109,9 +114,11 @@ public final class View
 
 		// Initialize reference vector
 		// TODO: INITIALIZE MEMBERS FOR THE REFERENCE VECTOR HERE
+		rv = new Point2D.Double(model.getFactor(), 0);
 
 		// Initialize tracer and bounces
-		// TODO: INITIALIZE MEMBERS FOR THE TRACER AND BOUNCES HERE
+		traces = new ArrayDeque<Point2D.Double>();
+		bounces = new ArrayDeque<Point2D.Double>(); 
 
 		// Initialize controller (interaction handlers)
 		keyHandler = new KeyHandler(this, model);
@@ -121,7 +128,6 @@ public final class View
 		animator = new FPSAnimator(canvas, DEFAULT_FRAMES_PER_SECOND);
 		animator.start();
 	}
-
 	//**********************************************************************
 	// Getters and Setters
 	//**********************************************************************
@@ -150,6 +156,12 @@ public final class View
 		// Remove all trajectory and bounce points
 
 		// TODO: YOUR CODE HERE
+		traces = new ArrayDeque<Point2D.Double>();
+		bounces = new ArrayDeque<Point2D.Double>(); 
+	}
+
+	public int getMaxSides() {
+		return MAX_SIDES;
 	}
 
 	//**********************************************************************
@@ -201,16 +213,20 @@ public final class View
 		model.setObjectInSceneCoordinatesAlt(new Point2D.Double(q.x, q.y));
 
 		// Remove old (>1 second) trajectory and bounce points
-
-		// TODO: YOUR CODE HERE
+		if (counter % 60 < 1) {
+			if(!traces.isEmpty() && !bounces.isEmpty()) {
+				traces.removeLast();
+				bounces.removeLast();
+			}
+		}					
+			
 	}
 
 	private void	render(GLAutoDrawable drawable)
 	{
 		GL2	gl = drawable.getGL().getGL2();
 
-		gl.glClear(GL.GL_COLOR_BUFFER_BIT);		// Clear the buffer
-
+		gl.glClear(GL.GL_COLOR_BUFFER_BIT);
 		// Draw the scene
 		drawMain(gl);								// Draw main content
 		drawMode(drawable);						// Draw mode text
@@ -230,7 +246,7 @@ public final class View
 
 		// Make points easier to see on Hi-DPI displays
 		gl.glEnable(GL2.GL_POINT_SMOOTH);	// Turn on point anti-aliasing
-	}
+		}
 
 	private void	updatePipeline(GLAutoDrawable drawable)
 	{
@@ -311,12 +327,15 @@ public final class View
 	private void	drawContainer(GL2 gl)
 	{
 		Deque<Point2D.Double>	polygon = getCurrentPolygon();
+		//System.out.println(polygon);
+
+		gl.glColor3f(.5f, .5f, .5f);			// White
+		edgePolygon(gl, polygon);
 
 		gl.glColor3f(0.15f, 0.15f, 0.15f);			// Very dark gray
 		fillPolygon(gl, polygon);
 
-		gl.glColor3f(1.0f, 1.0f, 1.0f);			// White
-		edgePolygon(gl, polygon);
+
 	}
 
 	// If the cursor point is not null, draw something helpful around it.
@@ -327,28 +346,62 @@ public final class View
 		if (cursor == null)
 			return;
 
-		// TODO: YOUR CODE HERE
+		gl.glBegin(GL.GL_LINE_LOOP);
+		gl.glColor3f(0.5f, 0.5f, 0.5f);
+
+		for (int i=0; i<32; i++)
+		{
+			double	theta = (2.0 * Math.PI) * (i / 32.0);
+
+			gl.glVertex2d(cursor.x + 0.01 * Math.cos(theta),
+						  cursor.y + 0.01 * Math.sin(theta));
+		}
+
+		gl.glEnd();
 	}
 
 	// Draw the moving object, which in this assignment is a single point.
 	private void	drawObject(GL2 gl)
 	{
 		Point2D.Double	object = model.getObject();
+		gl.glBegin(GL2.GL_POINTS);
+		gl.glColor3f(1f, 1f, (float)(51/255));			// bright yellow
+		gl.glVertex2d(object.x, object.y);
 
-		// TODO: YOUR CODE HERE
+		gl.glEnd();	
 	}
 
 	// Draw the object trajectory in the polygon.
 	private void	drawTracing(GL2 gl)
 	{
-		// TODO: YOUR CODE HERE
+		if(!traces.isEmpty()) {
+			gl.glBegin(GL2.GL_LINES);//static field
+			Point2D.Double object = model.getObject();
+			Point2D.Double dest = traces.getFirst();
+			gl.glColor3f(0, 0, (float)(51/255));			// blue?
+			gl.glVertex2d(object.x,object.y);
+			gl.glVertex2d(dest.x,dest.y);
+
+			gl.glEnd();
+		}
 	}
 
 	// Draw the reflection points on the polygon.
 	private void	drawBounces(GL2 gl)
 	{
-		// TODO: YOUR CODE HERE
+		if(!bounces.isEmpty()) {
+			gl.glBegin(GL2.GL_POINTS);
+			gl.glColor3f(1f, 0f, 0f);			// red
+			Iterator<Point2D.Double> bIterator = bounces.iterator();
+			while (bIterator.hasNext()) {
+				Point2D.Double bounce = bIterator.next();
+				gl.glVertex2d(bounce.x, bounce.y);
+			}
+
+			gl.glEnd();	
+		}
 	}
+
 
 	//**********************************************************************
 	// Private Methods (Polygons)
@@ -370,31 +423,52 @@ public final class View
 		polygon.add(new Point2D.Double(-0.93, -0.42));
 		polygon.add(new Point2D.Double(-0.53, -0.84));
 		polygon.add(new Point2D.Double( 0.71, -1.00));
+		polygon.add(new Point2D.Double( 1.00, -0.86));
 
 		return polygon;
 	}
 
 	// Creates a regular N-gon with points stored in counterclockwise order.
 	// The polygon is centered at the origin with first vertex at (1.0, 0.0).
-	private Deque<Point2D.Double>	createPolygon(int sides)
-	{
-		Deque<Point2D.Double>	polygon = new ArrayDeque<Point2D.Double>(sides);
-
-		// TODO: YOUR CODE HERE
-
+	private Deque<Point2D.Double> createPolygon(int sides) {
+		Deque<Point2D.Double> polygon = new ArrayDeque<>(sides);
+		double theta = 0.0;
+		double delta = 2.0 * Math.PI / sides;
+		double radius = .70 / Math.cos(delta/2.0); // compute the radius to make sure the polygon is centered at (0,0) and the first point is (1,0)
+		if(sides == 3) {
+			radius = .50 / Math.cos(delta/2.0); // triangle size is too big at .7 but other polygons are good size
+		}
+		for (int i = 0; i < sides; i++) {
+			double x = radius * Math.cos(theta);
+			double y = radius * Math.sin(theta);
+			polygon.add(new Point2D.Double(x, y));
+			theta += delta;
+		}
 		return polygon;
 	}
 
-	// Draws the sides of the specified polygon.
-	private void	edgePolygon(GL2 gl, Deque<Point2D.Double> polygon)
-	{
-		// TODO: YOUR CODE HERE
+	private void edgePolygon(GL2 gl, Deque<Point2D.Double> polygon) {
+		Iterator<Point2D.Double> pIterator = polygon.iterator();
+		gl.glBegin(GL.GL_LINE_LOOP);
+		while (pIterator.hasNext()) {
+			Point2D.Double vertex = pIterator.next();
+			gl.glVertex2d(vertex.x, vertex.y);
+		}
+		gl.glEnd();
+
 	}
 
 	// Draws the interior of the specified polygon.
 	private void	fillPolygon(GL2 gl, Deque<Point2D.Double> polygon)
 	{
-		// TODO: YOUR CODE HERE
+		Iterator<Point2D.Double> pIterator = polygon.iterator();
+ 
+		gl.glBegin(GL2.GL_POLYGON);
+		while (pIterator.hasNext()) {
+			Point2D.Double vertex = pIterator.next();
+			gl.glVertex2d(vertex.getX(), vertex.getY());
+		}
+		gl.glEnd();
 	}
 
 	// Get the polygon that is currently containing the moving object.
@@ -404,7 +478,7 @@ public final class View
 
 		if (sides == 2)
 			return special;
-		else if ((MIN_SIDES <= sides) && (sides <= MAX_SIDES))
+		else if ((MIN_SIDES <= sides) && (sides <= MAX_SIDES+1))
 			return regions.get(sides - MIN_SIDES);
 		else
 			return null;
@@ -427,16 +501,24 @@ public final class View
 											  Point2D.Double q)
 	{
 		// TODO: YOUR CODE HERE. Hints for how to approach it follow.
-
+		
 		// Use the reference vector to remember the current direction of
 		// movement with a magnitude equal to the default distance (factor=1.0).
+
+		Point2D.Double v = new Point2D.Double(rv.x * model.getFactor(), rv.y * model.getFactor());
 
 		// For each update, copy the reference vector and scale it by the
 		// current speed factor...
 
 		// ...then loop to consume the scaled vector until nothing is left.
-		while (true)
+		while (v.distance(0,0) > 0)
 		{
+			double minDist = Double.MAX_VALUE;
+			Point2D.Double closestIntersection = null;
+			Point2D.Double p1 = polygon.getLast();
+			for(Point2D.Double p2 : polygon) {
+				Point2D.Double intersection = hmmm;
+			}
 			// 1. Calculate which side the point will reach first.
 
 			//    Loop the polygon counterclockwise, taking vertices pairwise.
@@ -462,7 +544,6 @@ public final class View
 			// vector for the next time updatePointWithReflection() is called!
 		}
 	}
-
 	//**********************************************************************
 	// Private Methods (Vectors)
 	//**********************************************************************
@@ -471,9 +552,7 @@ public final class View
 	private double		dot(double vx, double vy, double vz,
 							double wx, double wy, double wz)
 	{
-		// TODO: YOUR CODE HERE
-
-		return 0.0;
+		return (vx*wx)+(vy*wy)+(vz*wz);
 	}
 
 	// Determines if point q is to the left of line p1->p2. If strict is false,
@@ -481,11 +560,19 @@ public final class View
 	private boolean	isLeft(Point2D.Double p1, Point2D.Double p2,
 							   Point2D.Double q, boolean strict)
 	{
-		// TODO: YOUR CODE HERE
+		//getting vector p1->p2
+		double vx = p2.x - p1.x;
+		double vy = p2.y - p1.y;
+		//getting vector p1->q
+		double wx = q.x - p1.x;
+		double wy = q.y - p1.y;
 
-		// Hint: Use dot(). See the slide on "Testing Containment in 2D".
+		//calculate dot prod
+		double dp = dot(vx, vy, 0, wx, wy, 0);
 
-		return false;
+		//return result
+		if(strict) return dp > 0;
+		else return dp >= 0;
 	}
 
 	// Determines if point q is inside a polygon. The polygon must be convex
@@ -494,12 +581,23 @@ public final class View
 	private boolean	contains(Deque<Point2D.Double> polygon,
 								 Point2D.Double q)
 	{
-		// TODO: YOUR CODE HERE
-
+		boolean contained = true;
+		Iterator<Point2D.Double> pIterator = polygon.iterator();
+		Point2D.Double p1 = pIterator.next();
+		Point2D.Double p2;
+		while (pIterator.hasNext()) {
+			p2 = pIterator.next();
+			if(!isLeft(p1,p2,q,false)) {
+				contained = false;
+				break;
+			}
+			p1 = p2;
+		}
 		// Hint: Use isLeft(). See the slide on "Testing Containment in 2D".
 
-		return false;
+		return contained && isLeft(p1, polygon.getFirst(), q, false);
 	}
+
 }
 
 //******************************************************************************

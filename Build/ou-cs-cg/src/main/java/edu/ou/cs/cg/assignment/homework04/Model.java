@@ -102,6 +102,9 @@ public final class Model
 		return factor;
 	}
 
+	public void incNumber() {
+		number++;
+	}
 	//**********************************************************************
 	// Public Methods (Modify Variables)
 	//**********************************************************************
